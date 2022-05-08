@@ -1,4 +1,9 @@
-export const a = 100;
-console.log('a: ', a);
+import {initMixin} from './init'
+// 将所有的方法都耦合在一起
 
-export default { a: 1 }
+function Vue(options){ // options 就是用户的选项
+  this._init(options)
+}
+
+initMixin(Vue) // 扩展了init方法
+export default Vue
