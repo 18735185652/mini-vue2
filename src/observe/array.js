@@ -18,7 +18,6 @@ methods.forEach(method => {
   newArrayProto[method] = function (...args) { //这里重写了数组的方法
     // todo...
     const result = oldArrayProto[method].call(this, ...args) // 内部调用原来的方法
-    console.log('method: ', method);
 
     let inserted;
     let ob = this.__ob__;

@@ -58,7 +58,6 @@
       var result = (_oldArrayProto$method = oldArrayProto[method]).call.apply(_oldArrayProto$method, [this].concat(args)); // 内部调用原来的方法
 
 
-      console.log('method: ', method);
       var inserted;
       var ob = this.__ob__;
 
@@ -149,9 +148,8 @@
 
     if (data.__ob__ instanceof Observer) {
       return data.__ob__;
-    }
+    } // 如果一个对象被劫持过了，那就不需要在被劫持了（要判断一个对象是否被劫持过，可以增添一个实例用实例来判断是否被劫持过）
 
-    console.log('data111: ', data); // 如果一个对象被劫持过了，那就不需要在被劫持了（要判断一个对象是否被劫持过，可以增添一个实例用实例来判断是否被劫持过）
 
     return new Observer(data);
   }
@@ -187,6 +185,12 @@
     }
   }
 
+  function compileToFunction(template) {
+    // 1. 将template转换成ast语法树
+    // 2. 生成render方法(render方法执行后返回的结果就是 虚拟DOM)
+    console.log('template1111: ', template);
+  }
+
   function initMixin(Vue) {
     // 就是给Vue增加init方法
     Vue.prototype._init = function (options) {
@@ -197,6 +201,38 @@
       //初始化状态
 
       initState(vm);
+
+      if (options.el) {
+        vm.$mount(options.el);
+      }
+    };
+
+    Vue.prototype.$mount = function (el) {
+      var vm = this;
+      el = document.querySelector(el);
+      var opts = vm.$options;
+
+      if (!opts.render) {
+        // 先查找有没有render函数
+        var template;
+
+        if (!opts.template && el) {
+          // 没写模版 但写了el
+          template = el.outerHTML;
+        } else {
+          if (el) template = opts.template; // 如果有el 则采用模版的内容
+        }
+
+        console.log('template', template); // 写了tamplate 就用写了的template
+
+        if (template) {
+          // 这里需要对模版进行编译
+          var render = compileToFunction(template);
+          opts.render = render;
+        }
+      }
+
+      opts.render; // 最终就可以获取render方法
     };
   }
 

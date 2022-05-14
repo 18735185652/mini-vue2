@@ -51,7 +51,6 @@ export function observe(data) {
   if (data.__ob__ instanceof Observer) {
     return data.__ob__;
   }
-  console.log('data111: ', data);
   // 如果一个对象被劫持过了，那就不需要在被劫持了（要判断一个对象是否被劫持过，可以增添一个实例用实例来判断是否被劫持过）
 
   return new Observer(data)
