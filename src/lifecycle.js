@@ -1,14 +1,76 @@
+import { createElementVNode, createTextVNode } from './vdom'
+
+function createElm(vnode) {
+  let { tag, data, children, text } = vnode;
+  if (typeof tag === 'string') { // 标签
+    vnode.el = document.createElement(tag) // 这里将真实节点和虚拟节点对应起来，如果修改属性了
+
+    patchProps(vnode.el, data)
+    children.forEach(child => {
+      vnode.el.appendChild(createElm(child))
+    })
+  } else {
+    vnode.el = document.createTextNode(text)
+  }
+  return vnode.el
+}
+function patchProps(el, props) {
+  for (let key in props) {
+    if (key === 'style') {
+      for (let styleName in props.style) {
+        el.style[styleName] = props.style[styleName]
+      }
+    } else {
+      el.setAttribute(key, props[key])
+    }
+
+  }
+}
+function patch(oldVNode, vnode) {
+  // 写的是初渲染流程
+  const isRealElement = oldVNode.nodeType;
+  if (isRealElement) {
+    let elm = oldVNode;
+    const parentElm = elm.parentNode; //拿到父元素
+    let newElm = createElm(vnode);
+    console.log('newEle: ', newElm);
+    parentElm.insertBefore(newElm, elm.nextSibling)
+    parentElm.removeChild(elm) // 删除老节点
+    return newElm
+
+  } else {
+
+  }
+}
+
 export function initLifeCycle(Vue) {
-  Vue.prototype._update = function () {
-    console.log('_update')
+  Vue.prototype._update = function (vnode) {
+    console.log('vnode: ', vnode);
+    // patch既有初始化的功能 又有更新的功能
+    const vm = this;
+    const el = vm.$el;
+    vm.$el = patch(el, vnode)
+  }
+  Vue.prototype._c = function () {
+    return createElementVNode(this, ...arguments)
+  }
+  Vue.prototype._v = function () {
+    return createTextVNode(this, ...arguments)
+
+  }
+  Vue.prototype._s = function (value) {
+    if (value !== 'object') return value
+    return JSON.stringify(value)
   }
   Vue.prototype._render = function () {
-    console.log('_render')
+    // 让with中的this指向vm
+    return this.$options.render.call(this)
   }
 }
 
 
 export function mountComponent(vm, el) {
+  vm.$el = el; // 这里的el 是通过querySelector获取过的
   // 1. 调用render方法产生虚拟节点 虚拟dom
   vm._update(vm._render()); // vm.$options.render() 虚拟节点
 
