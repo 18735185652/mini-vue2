@@ -1,6 +1,8 @@
 
 import { initState } from './state'
 import { compileToFunction } from './compiler'
+import { mountComponent } from './lifecycle'
+
 export function initMixin(Vue) { // 就是给Vue增加init方法
   Vue.prototype._init = function (options) { // 用于初始化操作
     // vue vm.$options 就是获取用户的配置
@@ -33,8 +35,10 @@ export function initMixin(Vue) { // 就是给Vue增加init方法
         opts.render = render
       }
     }
+    mountComponent(vm, el) // 组件的挂载
 
-    opts.render; // 最终就可以获取render方法
+    // opts.render; // 最终就可以获取render方法
+    console.log('opts.render: ', opts.render);
   }
 }
 

@@ -466,11 +466,37 @@
     // 1. 将template转换成ast语法树
     var ast = parseHTML(template); // 2. 生成render方法(render方法执行后返回的结果就是 虚拟DOM)
 
-    console.log('ast: ', ast); // codegen(ast)
+    console.log('ast: ', ast); // 模版引擎的实现原理 就是 with + new Function
 
     var code = codegen(ast);
-    console.log('code: ', code);
+    code = "with(this){return ".concat(code, "}");
+    var render = new Function(code);
+    console.log('code: ', render.toString());
+    return render;
   }
+
+  function initLifeCycle(Vue) {
+    Vue.prototype._update = function () {
+      console.log('_update');
+    };
+
+    Vue.prototype._render = function () {
+      console.log('_render');
+    };
+  }
+  function mountComponent(vm, el) {
+    // 1. 调用render方法产生虚拟节点 虚拟dom
+    vm._update(vm._render()); // vm.$options.render() 虚拟节点
+    // 2. 根据虚拟dom产生真实dom
+    // 3. 插入到el元素中
+
+  } // vue的核心流程
+  // 1。 创造了响应式数据
+  // 2. 模版转换成ast语法树
+  // 3. 将ast转换成了render函数，产生虚拟节点
+  // 4. 后续每次数据更新可以只执行render函数 无需再次执行ast转换的过程
+  // 5. render函数会去产生虚拟节点（使用响应式数据）
+  // 6. 根据生成的虚拟节点创造真实的DOM
 
   function initMixin(Vue) {
     // 就是给Vue增加init方法
@@ -513,7 +539,10 @@
         }
       }
 
-      opts.render; // 最终就可以获取render方法
+      mountComponent(vm); // 组件的挂载
+      // opts.render; // 最终就可以获取render方法
+
+      console.log('opts.render: ', opts.render);
     };
   }
 
@@ -523,6 +552,8 @@
   }
 
   initMixin(Vue); // 扩展了init方法
+
+  initLifeCycle(Vue); //
 
   return Vue;
 
