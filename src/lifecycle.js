@@ -1,5 +1,5 @@
 import { createElementVNode, createTextVNode } from './vdom'
-
+import Watcher from './observe/watcher'
 function createElm(vnode) {
   let { tag, data, children, text } = vnode;
   if (typeof tag === 'string') { // 标签
@@ -45,7 +45,6 @@ function patch(oldVNode, vnode) {
 
 export function initLifeCycle(Vue) {
   Vue.prototype._update = function (vnode) {
-    console.log('vnode: ', vnode);
     // patch既有初始化的功能 又有更新的功能
     const vm = this;
     const el = vm.$el;
@@ -72,7 +71,12 @@ export function initLifeCycle(Vue) {
 export function mountComponent(vm, el) {
   vm.$el = el; // 这里的el 是通过querySelector获取过的
   // 1. 调用render方法产生虚拟节点 虚拟dom
-  vm._update(vm._render()); // vm.$options.render() 虚拟节点
+  const updateComponent = () => {
+    vm._update(vm._render()); // vm.$options.render() 虚拟节点
+  }
+  // debugger;
+  let watcher = new Watcher(vm, updateComponent, true) // true用于标识一个渲染watcher
+  console.log('watcher: ', watcher);
 
   // 2. 根据虚拟dom产生真实dom
 

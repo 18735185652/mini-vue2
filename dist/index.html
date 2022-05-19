@@ -8,11 +8,11 @@
 </head>
 <body>
 
-  <div id="app">
-    <div>
-        {{name}}
+  <div id="app" style="color:yellow;background:green" key='123'>
+    <div style="color:red">
+        {{name}} hello {{age}} {{name}} haha
     </div>
-    <span>{{age}}</span>
+    <span>world</span>
   </div>
 <script src="vue.js"></script>
 <script>
@@ -32,13 +32,13 @@
       }
     },
     // el:'#app', //
-    template: `
-    <div id="app" style="color:yellow;background:green" key='123'>
-      <div style="color:red">
-          {{name}} hello {{age}} haha
-      </div>
-      <span>world</span>
-    </div>`
+    // template: `
+    // <div id="app" style="color:yellow;background:green" key='123'>
+    //   <div style="color:red">
+    //       {{name}} hello {{age}} {{name}} haha
+    //   </div>
+    //   <span>world</span>
+    // </div>`
     // render(){
     //   return
     // }
@@ -51,7 +51,7 @@
   setTimeout(()=>{
       vm.name='lisi'
       vm.age=100;
-      vm._update(vm._render())
+      // vm._update(vm._render())
   },1500)
   // 1. 模版引擎 性能差 需要正则匹配替换 1.0的时候没有引入虚拟DOM
   // 2. 采用虚拟Dom，数据变化后比较虚拟DOM的差异 最后更新需要更新的地方

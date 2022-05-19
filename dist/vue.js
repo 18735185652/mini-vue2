@@ -140,6 +140,43 @@
     };
   });
 
+  var id$1 = 0;
+
+  var Dep = /*#__PURE__*/function () {
+    function Dep() {
+      _classCallCheck(this, Dep);
+
+      this.id = id$1++; //属性的dep要收集watcher
+
+      this.subs = []; // 这里存放着当前属性对应的watcher有哪些
+    }
+
+    _createClass(Dep, [{
+      key: "depend",
+      value: function depend() {
+        // 这里不需要放重复的watcher 而且
+        // this.subs.push(Dep.target)
+        Dep.target.addDep(this); // 让watcher记住dep
+      }
+    }, {
+      key: "addSub",
+      value: function addSub(watcher) {
+        this.subs.push(watcher);
+      }
+    }, {
+      key: "notify",
+      value: function notify() {
+        this.subs.forEach(function (watcher) {
+          return watcher.update();
+        });
+      }
+    }]);
+
+    return Dep;
+  }();
+
+  Dep.target = null;
+
   var Observer = /*#__PURE__*/function () {
     function Observer(data) {
       _classCallCheck(this, Observer);
@@ -184,9 +221,16 @@
   function defineReactive(target, key, value) {
     observe(value); // 对所有的对象都进行属性劫持
 
+    var dep = new Dep(); // 每个属性都有一个dep
+
     Object.defineProperty(target, key, {
       get: function get() {
-        console.log('用户取值了');
+        console.log('用户取值了', key);
+
+        if (Dep.target) {
+          dep.depend(); // 让这个属性的收集器记住当前的watcher
+        }
+
         return value;
       },
       set: function set(newValue) {
@@ -196,6 +240,7 @@
 
         console.log('用户设置值了');
         value = newValue;
+        dep.notify();
       }
     });
   }
@@ -509,6 +554,56 @@
     };
   }
 
+  var id = 0; // 1. 当我们创建渲染watcher的时候 会把当前渲染watcher放到dep.target中
+  // 2. 调用_render() 会取值 会走到get上
+
+  var Watcher = /*#__PURE__*/function () {
+    // 不同的组件有不同的watcher 目前只有一个 渲染根实例的
+    function Watcher(vm, fn, options) {
+      _classCallCheck(this, Watcher);
+
+      this.id = id++;
+      this.renderWatcher = options; // 是一个渲染watcher
+
+      this.getter = fn; // getter意味着调用这个函数可以发生取值操作
+
+      this.deps = []; // 实现计算属性和一些清理工作需要用到
+
+      this.depsId = new Set();
+      this.get();
+    }
+
+    _createClass(Watcher, [{
+      key: "addDep",
+      value: function addDep(dep) {
+        // 一个组件对应多个属性 重复的属性也不用记录
+        var id = dep.id;
+
+        if (!this.depsId.has(id)) {
+          this.deps.push(dep);
+          this.depsId.add(id);
+          dep.addSub(this); // watcher已经记住dep 而且已经去重 让dep也记住watcher
+        }
+      }
+    }, {
+      key: "get",
+      value: function get() {
+        Dep.target = this; // 静态属性
+
+        this.getter(); // 会去vm上取值
+
+        Dep.target = null; // 渲染完毕后清空
+      }
+    }, {
+      key: "update",
+      value: function update() {
+        this.get();
+      }
+    }]);
+
+    return Watcher;
+  }(); // 需要给每个属性增加一个dep 目的就是收集watcher
+
   function createElm(vnode) {
     var tag = vnode.tag,
         data = vnode.data,
@@ -561,8 +656,7 @@
 
   function initLifeCycle(Vue) {
     Vue.prototype._update = function (vnode) {
-      console.log('vnode: ', vnode); // patch既有初始化的功能 又有更新的功能
-
+      // patch既有初始化的功能 又有更新的功能
       var vm = this;
       var el = vm.$el;
       vm.$el = patch(el, vnode);
@@ -590,10 +684,16 @@
     vm.$el = el; // 这里的el 是通过querySelector获取过的
     // 1. 调用render方法产生虚拟节点 虚拟dom
 
-    vm._update(vm._render()); // vm.$options.render() 虚拟节点
-    // 2. 根据虚拟dom产生真实dom
-    // 3. 插入到el元素中
+    var updateComponent = function updateComponent() {
+      vm._update(vm._render()); // vm.$options.render() 虚拟节点
 
+    }; // debugger;
+
+
+    var watcher = new Watcher(vm, updateComponent, true); // true用于标识一个渲染watcher
+
+    console.log('watcher: ', watcher); // 2. 根据虚拟dom产生真实dom
+    // 3. 插入到el元素中
   } // vue的核心流程
   // 1。 创造了响应式数据
   // 2. 模版转换成ast语法树
