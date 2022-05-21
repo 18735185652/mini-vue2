@@ -33,7 +33,6 @@ function patch(oldVNode, vnode) {
     let elm = oldVNode;
     const parentElm = elm.parentNode; //拿到父元素
     let newElm = createElm(vnode);
-    console.log('newEle: ', newElm);
     parentElm.insertBefore(newElm, elm.nextSibling)
     parentElm.removeChild(elm) // 删除老节点
     return newElm
@@ -76,7 +75,6 @@ export function mountComponent(vm, el) {
   }
   // debugger;
   let watcher = new Watcher(vm, updateComponent, true) // true用于标识一个渲染watcher
-  console.log('watcher: ', watcher);
 
   // 2. 根据虚拟dom产生真实dom
 
@@ -92,3 +90,12 @@ export function mountComponent(vm, el) {
 // 4. 后续每次数据更新可以只执行render函数 无需再次执行ast转换的过程
 // 5. render函数会去产生虚拟节点（使用响应式数据）
 // 6. 根据生成的虚拟节点创造真实的DOM
+
+
+// 调用钩子函数
+export function callHook(vm,hook){
+  const headers = vm.$options[hook];
+  if(headers){
+    headers.forEach(handler=>handler.call(vm))
+  }
+}

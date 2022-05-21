@@ -66,13 +66,11 @@ export function compileToFunction(template) {
   let ast = parseHTML(template)
 
   // 2. 生成render方法(render方法执行后返回的结果就是 虚拟DOM)
-  console.log('ast: ', ast);
 
  // 模版引擎的实现原理 就是 with + new Function
   let code = codegen(ast)
   code = `with(this){return ${code}}`;
   let render = new Function(code);
-  console.log('code: ', render.toString());
   return render
 
 }

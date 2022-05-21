@@ -349,7 +349,6 @@
     }
 
     function end(tag) {
-      console.log('end: ', tag);
       stack.pop();
       currentParent = stack[stack.length - 1];
     }
@@ -510,13 +509,11 @@
   function compileToFunction(template) {
     // 1. 将template转换成ast语法树
     var ast = parseHTML(template); // 2. 生成render方法(render方法执行后返回的结果就是 虚拟DOM)
-
-    console.log('ast: ', ast); // 模版引擎的实现原理 就是 with + new Function
+    // 模版引擎的实现原理 就是 with + new Function
 
     var code = codegen(ast);
     code = "with(this){return ".concat(code, "}");
     var render = new Function(code);
-    console.log('code: ', render.toString());
     return render;
   }
 
@@ -602,7 +599,6 @@
     }, {
       key: "run",
       value: function run() {
-        console.log('update: ');
         this.get();
       }
     }]);
@@ -731,7 +727,6 @@
       var parentElm = elm.parentNode; //拿到父元素
 
       var newElm = createElm(vnode);
-      console.log('newEle: ', newElm);
       parentElm.insertBefore(newElm, elm.nextSibling);
       parentElm.removeChild(elm); // 删除老节点
 
@@ -775,9 +770,8 @@
     }; // debugger;
 
 
-    var watcher = new Watcher(vm, updateComponent, true); // true用于标识一个渲染watcher
-
-    console.log('watcher: ', watcher); // 2. 根据虚拟dom产生真实dom
+    new Watcher(vm, updateComponent, true); // true用于标识一个渲染watcher
+    // 2. 根据虚拟dom产生真实dom
     // 3. 插入到el元素中
   } // vue的核心流程
   // 1。 创造了响应式数据
@@ -786,6 +780,61 @@
   // 4. 后续每次数据更新可以只执行render函数 无需再次执行ast转换的过程
   // 5. render函数会去产生虚拟节点（使用响应式数据）
   // 6. 根据生成的虚拟节点创造真实的DOM
+  // 调用钩子函数
+
+  function callHook(vm, hook) {
+    var headers = vm.$options[hook];
+
+    if (headers) {
+      headers.forEach(function (handler) {
+        return handler.call(vm);
+      });
+    }
+  }
+
+  var strats = {};
+  var LIFECYCLE = ['beforeCreate', 'created'];
+  LIFECYCLE.forEach(function (hook) {
+    strats[hook] = function (p, c) {
+      if (c) {
+        // 如果儿子有 父亲有 让父亲和儿子拼接在一起
+        if (p) {
+          //
+          return p.concat(c);
+        } else {
+          return [c]; //儿子有 父亲没有，则将儿子包装成数组
+        }
+      } else {
+        return p; // 儿子没有 用父亲即可
+      }
+    };
+  });
+  function mergeOptions(parent, child) {
+    var options = {};
+
+    for (var key in parent) {
+      // 循环老的
+      mergeField(key);
+    }
+
+    for (var _key in child) {
+      // 循环老的
+      if (!parent.hasOwnProperty(_key)) {
+        mergeField(_key);
+      }
+    }
+
+    function mergeField(key) {
+      if (strats[key]) {
+        options[key] = strats[key](parent[key], child[key]);
+      } else {
+        // 如果不在策略中则以儿子为主
+        options[key] = child[key] || parent[key];
+      }
+    }
+
+    return options;
+  }
 
   function initMixin(Vue) {
     // 就是给Vue增加init方法
@@ -793,10 +842,12 @@
       // 用于初始化操作
       // vue vm.$options 就是获取用户的配置
       var vm = this;
-      vm.$options = options; // 将用户的选项挂在到实例上
-      //初始化状态
+      vm.$options = mergeOptions(this.constructor.options, options); // 将用户的选项挂在到实例上
+
+      callHook(vm, 'beforeCreate'); //初始化状态
 
       initState(vm);
+      callHook(vm, 'created');
 
       if (options.el) {
         vm.$mount(options.el);
@@ -817,9 +868,8 @@
           template = el.outerHTML;
         } else {
           if (el) template = opts.template; // 如果有el 则采用模版的内容
-        }
+        } // 写了tamplate 就用写了的template
 
-        console.log('template', template); // 写了tamplate 就用写了的template
 
         if (template) {
           // 这里需要对模版进行编译
@@ -830,8 +880,17 @@
 
       mountComponent(vm, el); // 组件的挂载
       // opts.render; // 最终就可以获取render方法
+    };
+  }
 
-      console.log('opts.render: ', opts.render);
+  function initGlobalAPI(Vue) {
+    //静态方法
+    Vue.options = {};
+
+    Vue.mixin = function (mixin) {
+      // 我们期望将用户的选项和 全局的options进行合并
+      this.options = mergeOptions(this.options, mixin);
+      return this;
     };
   }
 
@@ -843,7 +902,8 @@
   Vue.prototype.$nextTick = nextTick;
   initMixin(Vue); // 扩展了init方法
 
-  initLifeCycle(Vue); //
+  initLifeCycle(Vue);
+  initGlobalAPI(Vue);
 
   return Vue;
 

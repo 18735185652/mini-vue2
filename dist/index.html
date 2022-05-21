@@ -15,9 +15,20 @@
     <span>world</span>
   </div>
 <script src="vue.js"></script>
+<!-- <script src="https://cdn.bootcdn.net/ajax/libs/vue/2.6.14/vue.js"></script> -->
 <script>
   //
-
+  Vue.mixin({
+    created(){
+      console.log('mixin1-created')
+    }
+  })
+  Vue.mixin({
+    created(){
+      console.log('mixin1-created')
+    }
+  })
+  console.log('aaaaa-------',Vue.options)
   const vm = new Vue({
     data(){
       return {
@@ -31,44 +42,18 @@
 
       }
     },
-    // el:'#app', //
-    // template: `
-    // <div id="app" style="color:yellow;background:green" key='123'>
-    //   <div style="color:red">
-    //       {{name}} hello {{age}} {{name}} haha
-    //   </div>
-    //   <span>world</span>
-    // </div>`
-    // render(){
-    //   return
-    // }
+    created(){
+        console.log('created')
+    }
+
   })
   vm.hobby.push('1')
   console.log('vm',vm)
 
   vm.$mount('#app')
 
-  // setTimeout(()=>{
-  //     vm.name='lisi'
-  //     vm.name='66'
-  //     vm.name='77'
-  //     vm.age=100;
-  //     // vm.address = 'ok'
-  //     // vm._update(vm._render())
-  // },1500)
-  vm.$nextTick(()=>{
-    console.log('app.innerHTML------------',app.innerHTML)
-  })
-  vm.name='lisi'
-  vm.name='77'
-  console.log('aaaa-----',vm.name)
 
-  // 1. 模版引擎 性能差 需要正则匹配替换 1.0的时候没有引入虚拟DOM
-  // 2. 采用虚拟Dom，数据变化后比较虚拟DOM的差异 最后更新需要更新的地方
-  // 3. 核心就是我们需要将模版变成JS语法 通过JS语法生成虚拟DOM
 
-  // 从一个东西变成另一个东西 语法之间的转化 es6 =》 es5
-  // css压缩  我们需要先变成语法树在重新组装代码成为新的语法 将template语法转成render函数
 </script>
 </body>
 </html>

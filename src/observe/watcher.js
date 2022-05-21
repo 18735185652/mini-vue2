@@ -32,8 +32,6 @@ class Watcher { // 不同的组件有不同的watcher 目前只有一个 渲染�
 
   }
   run() {
-    console.log('update: ');
-
     this.get();
   }
 }
