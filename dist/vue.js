@@ -597,12 +597,97 @@
     }, {
       key: "update",
       value: function update() {
+        queueWatcher(this);
+      }
+    }, {
+      key: "run",
+      value: function run() {
+        console.log('update: ');
         this.get();
       }
     }]);
 
     return Watcher;
-  }(); // 需要给每个属性增加一个dep 目的就是收集watcher
+  }();
+
+  var queue = [];
+  var has = [];
+  var pedding = false;
+
+  function flushSchedulerQueue() {
+    var flushQueue = queue.slice(0);
+    queue = [];
+    pedding = false;
+    flushQueue.forEach(function (q) {
+      return q.run();
+    });
+  }
+
+  function queueWatcher(watcher) {
+    var id = watcher.id;
+
+    if (!has[id]) {
+      queue.push(watcher);
+      has[id] = true;
+
+      if (!pedding) {
+        // setTimeout(flushSchedulerQueue, 0)
+        nextTick(flushSchedulerQueue);
+      }
+    }
+  }
+
+  var callbacks = [];
+  var wating = false;
+
+  function flushCallbacks() {
+    var cbs = callbacks.slice(0);
+    wating = false;
+    callbacks = [];
+    cbs.forEach(function (cb) {
+      return cb();
+    });
+  } // nextTick没有直接使用某个api 而是采用优雅降级的方式
+  // 内部先采用的是promise（ie不兼容）=> MutationObserver(H5 API) =》 ie专用  setImmediate =》 setTimeout
+
+
+  var timerFunc;
+
+  if (Promise) {
+    timerFunc = function timerFunc() {
+      Promise.resolve().then(flushCallbacks);
+    };
+  } else if (MutationObserver) {
+    var observer = new MutationObserver(flushCallbacks);
+    var textNode = document.createTextNode(1);
+    observer.observe(textNode, {
+      characterData: true
+    });
+
+    timerFunc = function timerFunc() {
+      textNode.textContent = 2;
+    };
+  } else if (setImmediate) {
+    timerFunc = function timerFunc() {
+      setImmediate(flushCallbacks);
+    };
+  } else {
+    timerFunc = function timerFunc() {
+      setTimeout(flushCallbacks);
+    };
+  }
+
+  function nextTick(cb) {
+    callbacks.push(cb);
+
+    if (!wating) {
+      // setTimeout(() => {
+      //   flushCallbacks() // 最后一起刷新
+      // }, 0)
+      timerFunc();
+      wating = true;
+    }
+  } // 需要给每个属性增加一个dep 目的就是收集watcher
 
   function createElm(vnode) {
     var tag = vnode.tag,
@@ -755,6 +840,7 @@
     this._init(options);
   }
 
+  Vue.prototype.$nextTick = nextTick;
   initMixin(Vue); // 扩展了init方法
 
   initLifeCycle(Vue); //

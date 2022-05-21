@@ -28,7 +28,91 @@ class Watcher { // 不同的组件有不同的watcher 目前只有一个 渲染�
     Dep.target = null; // 渲染完毕后清空
   }
   update() {
+    queueWatcher(this)
+
+  }
+  run() {
+    console.log('update: ');
+
     this.get();
+  }
+}
+
+
+let queue = [];
+let has = [];
+let pedding = false;
+function flushSchedulerQueue() {
+  let flushQueue = queue.slice(0);
+  queue = [];
+  pedding = false;
+  flushQueue.forEach(q => q.run())
+}
+function queueWatcher(watcher) {
+  const id = watcher.id;
+  if (!has[id]) {
+    queue.push(watcher);
+    has[id] = true;
+    if (!pedding) {
+      // setTimeout(flushSchedulerQueue, 0)
+      nextTick(flushSchedulerQueue, 0)
+
+    }
+  }
+}
+
+let callbacks = [];
+let wating = false;
+
+function flushCallbacks() {
+  const cbs = callbacks.slice(0);
+  wating = false;
+  callbacks = []
+  cbs.forEach(cb => cb());
+}
+
+
+
+
+// nextTick没有直接使用某个api 而是采用优雅降级的方式
+// 内部先采用的是promise（ie不兼容）=> MutationObserver(H5 API) =》 ie专用  setImmediate =》 setTimeout
+
+let timerFunc;
+if (Promise) {
+  timerFunc = () => {
+    Promise.resolve().then(flushCallbacks)
+  }
+} else if (MutationObserver) {
+  let observer = new MutationObserver(flushCallbacks);
+  let textNode = document.createTextNode(1);
+  observer.observe(textNode, {
+    characterData: true
+  })
+  timerFunc = () => {
+    textNode.textContent = 2;
+  }
+
+} else if (setImmediate) {
+  timerFunc = () => {
+    setImmediate(flushCallbacks)
+  }
+} else {
+  timerFunc = () => {
+    setTimeout(flushCallbacks)
+  }
+}
+
+
+
+export function nextTick(cb) {
+  callbacks.push(cb)
+  if (!wating) {
+    // setTimeout(() => {
+    //   flushCallbacks() // 最后一起刷新
+    // }, 0)
+    timerFunc()
+    wating = true;
+
   }
 }
 

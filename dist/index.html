@@ -48,11 +48,21 @@
 
   vm.$mount('#app')
 
-  setTimeout(()=>{
-      vm.name='lisi'
-      vm.age=100;
-      // vm._update(vm._render())
-  },1500)
+  // setTimeout(()=>{
+  //     vm.name='lisi'
+  //     vm.name='66'
+  //     vm.name='77'
+  //     vm.age=100;
+  //     // vm.address = 'ok'
+  //     // vm._update(vm._render())
+  // },1500)
+  vm.$nextTick(()=>{
+    console.log('app.innerHTML------------',app.innerHTML)
+  })
+  vm.name='lisi'
+  vm.name='77'
+  console.log('aaaa-----',vm.name)
+
   // 1. 模版引擎 性能差 需要正则匹配替换 1.0的时候没有引入虚拟DOM
   // 2. 采用虚拟Dom，数据变化后比较虚拟DOM的差异 最后更新需要更新的地方
   // 3. 核心就是我们需要将模版变成JS语法 通过JS语法生成虚拟DOM
