@@ -176,6 +176,16 @@
   }();
 
   Dep.target = null;
+  var stack = [];
+  function pushTarget(watcher) {
+    stack.push(watcher);
+    console.log('stack: ', stack);
+    Dep.target = watcher;
+  }
+  function popTarget() {
+    stack.pop();
+    Dep.target = stack[stack.length - 1];
+  }
 
   var Observer = /*#__PURE__*/function () {
     function Observer(data) {
@@ -258,11 +268,161 @@
     return new Observer(data);
   }
 
+  var id = 0; // 1. 当我们创建渲染watcher的时候 会把当前渲染watcher放到dep.target中
+  // 2. 调用_render() 会取值 会走到get上
+
+  var Watcher = /*#__PURE__*/function () {
+    // 不同的组件有不同的watcher 目前只有一个 渲染根实例的
+    function Watcher(vm, fn, options) {
+      _classCallCheck(this, Watcher);
+
+      this.id = id++;
+      this.vm = vm;
+      this.renderWatcher = options; // 是一个渲染watcher
+
+      this.getter = fn; // getter意味着调用这个函数可以发生取值操作
+
+      this.deps = []; // 实现计算属性和一些清理工作需要用到
+
+      this.depsId = new Set();
+      this.lazy = options.lazy;
+      this.dirty = this.lazy; // 缓存值
+
+      this.lazy ? undefined : this.get();
+    }
+
+    _createClass(Watcher, [{
+      key: "addDep",
+      value: function addDep(dep) {
+        // 一个组件对应多个属性 重复的属性也不用记录
+        var id = dep.id;
+
+        if (!this.depsId.has(id)) {
+          this.deps.push(dep);
+          this.depsId.add(id);
+          dep.addSub(this); // watcher已经记住dep 而且已经去重 让dep也记住watcher
+        }
+      }
+    }, {
+      key: "evaluate",
+      value: function evaluate() {
+        this.value = this.get();
+        this.dirty = false;
+      }
+    }, {
+      key: "get",
+      value: function get() {
+        pushTarget(this); // Dep.target = this // 静态属性
+
+        var value = this.getter.call(this.vm); // 会去vm上取值
+
+        popTarget(); // 渲染完毕后清空
+
+        return value;
+      }
+    }, {
+      key: "update",
+      value: function update() {
+        queueWatcher(this);
+      }
+    }, {
+      key: "run",
+      value: function run() {
+        this.get();
+      }
+    }]);
+
+    return Watcher;
+  }();
+
+  var queue = [];
+  var has = [];
+  var pedding = false;
+
+  function flushSchedulerQueue() {
+    var flushQueue = queue.slice(0);
+    queue = [];
+    pedding = false;
+    flushQueue.forEach(function (q) {
+      return q.run();
+    });
+  }
+
+  function queueWatcher(watcher) {
+    var id = watcher.id;
+
+    if (!has[id]) {
+      queue.push(watcher);
+      has[id] = true;
+
+      if (!pedding) {
+        // setTimeout(flushSchedulerQueue, 0)
+        nextTick(flushSchedulerQueue);
+      }
+    }
+  }
+
+  var callbacks = [];
+  var wating = false;
+
+  function flushCallbacks() {
+    var cbs = callbacks.slice(0);
+    wating = false;
+    callbacks = [];
+    cbs.forEach(function (cb) {
+      return cb();
+    });
+  } // nextTick没有直接使用某个api 而是采用优雅降级的方式
+  // 内部先采用的是promise（ie不兼容）=> MutationObserver(H5 API) =》 ie专用  setImmediate =》 setTimeout
+
+
+  var timerFunc;
+
+  if (Promise) {
+    timerFunc = function timerFunc() {
+      Promise.resolve().then(flushCallbacks);
+    };
+  } else if (MutationObserver) {
+    var observer = new MutationObserver(flushCallbacks);
+    var textNode = document.createTextNode(1);
+    observer.observe(textNode, {
+      characterData: true
+    });
+
+    timerFunc = function timerFunc() {
+      textNode.textContent = 2;
+    };
+  } else if (setImmediate) {
+    timerFunc = function timerFunc() {
+      setImmediate(flushCallbacks);
+    };
+  } else {
+    timerFunc = function timerFunc() {
+      setTimeout(flushCallbacks);
+    };
+  }
+
+  function nextTick(cb) {
+    callbacks.push(cb);
+
+    if (!wating) {
+      // setTimeout(() => {
+      //   flushCallbacks() // 最后一起刷新
+      // }, 0)
+      timerFunc();
+      wating = true;
+    }
+  } // 需要给每个属性增加一个dep 目的就是收集watcher
+
   function initState(vm) {
     var opts = vm.$options;
 
     if (opts.data) {
       initData(vm);
+    }
+
+    if (opts.computed) {
+      initComputed(vm);
     }
   }
 
@@ -287,6 +447,47 @@
     for (var key in data) {
       proxy(vm, '_data', key);
     }
+  }
+
+  function initComputed(vm) {
+    var cpmputed = vm.$options.computed;
+    var watchers = vm._computedWatchers = {}; // 将计算属性watchers保存到vm上
+
+    for (var key in cpmputed) {
+      var userDef = cpmputed[key]; //我们需要计算监控 计算属性中get的变化
+
+      var fn = typeof userDef === 'function' ? userDef : userDef.get; // 如果直接new Watcher 默认会走fn,将属性和watcher对应起来
+
+      watchers[key] = new Watcher(vm, fn, {
+        lazy: true
+      });
+      defineComputed(vm, key, userDef);
+    }
+
+    function defineComputed(target, key, userDef) {
+      var setter = userDef.set || function () {}; // 可以通过实例拿到对应的属性
+
+
+      Object.defineProperty(target, key, {
+        get: createComputedGetter(key),
+        set: setter
+      });
+    }
+
+    console.log('cpmputed: ', cpmputed);
+  }
+
+  function createComputedGetter(key) {
+    //检测是否执行getter
+    return function () {
+      var watcher = this._computedWatchers[key];
+
+      if (watcher.dirty) {
+        watcher.evaluate();
+      }
+
+      return watcher.value;
+    };
   }
 
   var ncname = "[a-zA-Z_][\\-\\.0-9_a-zA-Z]*";
@@ -550,140 +751,6 @@
       text: text
     };
   }
-
-  var id = 0; // 1. 当我们创建渲染watcher的时候 会把当前渲染watcher放到dep.target中
-  // 2. 调用_render() 会取值 会走到get上
-
-  var Watcher = /*#__PURE__*/function () {
-    // 不同的组件有不同的watcher 目前只有一个 渲染根实例的
-    function Watcher(vm, fn, options) {
-      _classCallCheck(this, Watcher);
-
-      this.id = id++;
-      this.renderWatcher = options; // 是一个渲染watcher
-
-      this.getter = fn; // getter意味着调用这个函数可以发生取值操作
-
-      this.deps = []; // 实现计算属性和一些清理工作需要用到
-
-      this.depsId = new Set();
-      this.get();
-    }
-
-    _createClass(Watcher, [{
-      key: "addDep",
-      value: function addDep(dep) {
-        // 一个组件对应多个属性 重复的属性也不用记录
-        var id = dep.id;
-
-        if (!this.depsId.has(id)) {
-          this.deps.push(dep);
-          this.depsId.add(id);
-          dep.addSub(this); // watcher已经记住dep 而且已经去重 让dep也记住watcher
-        }
-      }
-    }, {
-      key: "get",
-      value: function get() {
-        Dep.target = this; // 静态属性
-
-        this.getter(); // 会去vm上取值
-
-        Dep.target = null; // 渲染完毕后清空
-      }
-    }, {
-      key: "update",
-      value: function update() {
-        queueWatcher(this);
-      }
-    }, {
-      key: "run",
-      value: function run() {
-        this.get();
-      }
-    }]);
-
-    return Watcher;
-  }();
-
-  var queue = [];
-  var has = [];
-  var pedding = false;
-
-  function flushSchedulerQueue() {
-    var flushQueue = queue.slice(0);
-    queue = [];
-    pedding = false;
-    flushQueue.forEach(function (q) {
-      return q.run();
-    });
-  }
-
-  function queueWatcher(watcher) {
-    var id = watcher.id;
-
-    if (!has[id]) {
-      queue.push(watcher);
-      has[id] = true;
-
-      if (!pedding) {
-        // setTimeout(flushSchedulerQueue, 0)
-        nextTick(flushSchedulerQueue);
-      }
-    }
-  }
-
-  var callbacks = [];
-  var wating = false;
-
-  function flushCallbacks() {
-    var cbs = callbacks.slice(0);
-    wating = false;
-    callbacks = [];
-    cbs.forEach(function (cb) {
-      return cb();
-    });
-  } // nextTick没有直接使用某个api 而是采用优雅降级的方式
-  // 内部先采用的是promise（ie不兼容）=> MutationObserver(H5 API) =》 ie专用  setImmediate =》 setTimeout
-
-
-  var timerFunc;
-
-  if (Promise) {
-    timerFunc = function timerFunc() {
-      Promise.resolve().then(flushCallbacks);
-    };
-  } else if (MutationObserver) {
-    var observer = new MutationObserver(flushCallbacks);
-    var textNode = document.createTextNode(1);
-    observer.observe(textNode, {
-      characterData: true
-    });
-
-    timerFunc = function timerFunc() {
-      textNode.textContent = 2;
-    };
-  } else if (setImmediate) {
-    timerFunc = function timerFunc() {
-      setImmediate(flushCallbacks);
-    };
-  } else {
-    timerFunc = function timerFunc() {
-      setTimeout(flushCallbacks);
-    };
-  }
-
-  function nextTick(cb) {
-    callbacks.push(cb);
-
-    if (!wating) {
-      // setTimeout(() => {
-      //   flushCallbacks() // 最后一起刷新
-      // }, 0)
-      timerFunc();
-      wating = true;
-    }
-  } // 需要给每个属性增加一个dep 目的就是收集watcher
 
   function createElm(vnode) {
     var tag = vnode.tag,

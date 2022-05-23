@@ -15,5 +15,14 @@
     "@rollup/plugin-node-resolve": "^13.3.0",
     "rollup": "^2.72.1",
     "rollup-plugin-babel": "^4.4.0"
+  },
+  "prettier": {
+    "singleQuote": true,
+    "semi": false,
+    "stylelintIntegration": true,
+    "eslintIntegration": true,
+    "insertPragma": false,
+    "trailingComma": "none",
+    "arrowParens": "avoid"
   }
 }
