@@ -32,6 +32,7 @@ class Watcher {
     this.dirty = false
   }
   get() {
+    debugger
     pushTarget(this)
     // Dep.target = this // 静态属性
     let value = this.getter.call(this.vm) // 会去vm上取值
@@ -39,7 +40,17 @@ class Watcher {
     return value
   }
   update() {
-    queueWatcher(this)
+    if (this.lazy) {
+      this.dirty = true
+    } else {
+      queueWatcher(this)
+    }
+  }
+  depend() {
+    let i = this.deps.length
+    while (i--) {
+      this.deps[i].depend()
+    }
   }
   run() {
     this.get()

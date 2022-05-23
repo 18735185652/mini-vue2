@@ -98,48 +98,6 @@
     throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
   }
 
-  var oldArrayProto = Array.prototype; //获取数组的原型
-
-  var newArrayProto = Object.create(oldArrayProto);
-  var methods = [// 找到所有的变异方法
-  "push", "pop", "shift", "unshift", "sort", "splice"];
-  methods.forEach(function (method) {
-    // arr.push(1,2,3)
-    newArrayProto[method] = function () {
-      var _oldArrayProto$method;
-
-      for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
-        args[_key] = arguments[_key];
-      }
-
-      //这里重写了数组的方法
-      // todo...
-      var result = (_oldArrayProto$method = oldArrayProto[method]).call.apply(_oldArrayProto$method, [this].concat(args)); // 内部调用原来的方法
-
-
-      var inserted;
-      var ob = this.__ob__;
-
-      switch (method) {
-        case 'push':
-        case 'unshift':
-          inserted = args;
-          break;
-
-        case 'splice':
-          inserted = args.slice(2);
-          break;
-      }
-
-      if (inserted) {
-        // 对新增的内容再次观测
-        ob.ovserverArray(inserted);
-      }
-
-      return result;
-    };
-  });
-
   var id$1 = 0;
 
   var Dep = /*#__PURE__*/function () {
@@ -186,6 +144,48 @@
     stack.pop();
     Dep.target = stack[stack.length - 1];
   }
+
+  var oldArrayProto = Array.prototype; //获取数组的原型
+
+  var newArrayProto = Object.create(oldArrayProto);
+  var methods = [// 找到所有的变异方法
+  "push", "pop", "shift", "unshift", "sort", "splice"];
+  methods.forEach(function (method) {
+    // arr.push(1,2,3)
+    newArrayProto[method] = function () {
+      var _oldArrayProto$method;
+
+      for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+        args[_key] = arguments[_key];
+      }
+
+      //这里重写了数组的方法
+      // todo...
+      var result = (_oldArrayProto$method = oldArrayProto[method]).call.apply(_oldArrayProto$method, [this].concat(args)); // 内部调用原来的方法
+
+
+      var inserted;
+      var ob = this.__ob__;
+
+      switch (method) {
+        case 'push':
+        case 'unshift':
+          inserted = args;
+          break;
+
+        case 'splice':
+          inserted = args.slice(2);
+          break;
+      }
+
+      if (inserted) {
+        // 对新增的内容再次观测
+        ob.ovserverArray(inserted);
+      }
+
+      return result;
+    };
+  });
 
   var Observer = /*#__PURE__*/function () {
     function Observer(data) {
@@ -312,6 +312,7 @@
     }, {
       key: "get",
       value: function get() {
+        debugger;
         pushTarget(this); // Dep.target = this // 静态属性
 
         var value = this.getter.call(this.vm); // 会去vm上取值
@@ -323,7 +324,20 @@
     }, {
       key: "update",
       value: function update() {
-        queueWatcher(this);
+        if (this.lazy) {
+          this.dirty = true;
+        } else {
+          queueWatcher(this);
+        }
+      }
+    }, {
+      key: "depend",
+      value: function depend() {
+        var i = this.deps.length;
+
+        while (i--) {
+          this.deps[i].depend();
+        }
       }
     }, {
       key: "run",
@@ -484,6 +498,11 @@
 
       if (watcher.dirty) {
         watcher.evaluate();
+      }
+
+      if (Dep.target) {
+        // 计算属性出栈后还有渲染watcher 让计算属性watcher里的属性也去收集上层watcher
+        watcher.depend();
       }
 
       return watcher.value;

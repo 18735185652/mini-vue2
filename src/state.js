@@ -1,3 +1,4 @@
+import Dep from './observe/dep'
 import { observe } from './observe/index'
 import Watcher from './observe/watcher'
 export function initState(vm) {
@@ -62,6 +63,9 @@ function createComputedGetter(key) {
     const watcher = this._computedWatchers[key]
     if (watcher.dirty) {
       watcher.evaluate()
+    }
+    if(Dep.target){ // 计算属性出栈后还有渲染watcher 让计算属性watcher里的属性也去收集上层watcher
+      watcher.depend()
     }
     return watcher.value
   }
